@@ -13,5 +13,5 @@ CREATE TABLE IF NOT EXISTS pickup_pass (
         FOREIGN KEY (lost_item_id) REFERENCES lost_item(id)
 );
 
-CREATE INDEX idx_pickup_pass_lost_item_id ON pickup_pass(lost_item_id);
-CREATE INDEX idx_pickup_pass_requester_uid ON pickup_pass(requester_uid);
+CREATE INDEX IF NOT EXISTS idx_pickup_pass_lost_item_id ON pickup_pass(lost_item_id);
+CREATE INDEX IF NOT EXISTS idx_pickup_pass_requester_uid ON pickup_pass(requester_uid);
