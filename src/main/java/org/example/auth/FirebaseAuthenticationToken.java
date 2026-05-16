@@ -8,11 +8,13 @@ import java.util.List;
 public class FirebaseAuthenticationToken extends AbstractAuthenticationToken {
     private final String uid;
     private final String email;
+    private final boolean admin;
 
     public FirebaseAuthenticationToken(String uid, String email, boolean admin) {
         super(admin ? List.of(new SimpleGrantedAuthority("ROLE_ADMIN")) : List.of());
         this.uid = uid;
         this.email = email;
+        this.admin = admin;
         setAuthenticated(true);
     }
 
@@ -32,5 +34,9 @@ public class FirebaseAuthenticationToken extends AbstractAuthenticationToken {
 
     public String getEmail() {
         return email;
+    }
+
+    public boolean isAdmin() {
+        return admin;
     }
 }

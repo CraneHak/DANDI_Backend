@@ -425,11 +425,10 @@ def main():
         new_posts = [(pno, url, title) for pno, url, title in all_posts if int(pno) > max_post_no]
         print(f"새 게시글 {len(new_posts)}개 크롤링 시작")
 
-        # seq는 기존 DB 마지막 id 이후부터 시작
-        start_seq = max_post_no + 1
         items = []
-        for seq, (post_no, url, list_title) in enumerate(new_posts, start_seq):
+        for post_no, url, list_title in new_posts:
             try:
+                seq = int(post_no)
                 item = parse_detail(page, seq, url, list_title)
                 item["post_no"] = int(post_no)
                 items.append(item)

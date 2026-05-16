@@ -3,6 +3,8 @@ package org.example.auth;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 @Service
 public class UserProfileService {
     private final UserProfileRepository userProfileRepository;
@@ -12,19 +14,21 @@ public class UserProfileService {
     }
 
     @Transactional
-    public UserProfile findOrCreate(String uid, String email) {
+    public UserProfile findOrCreate(String uid, String email, boolean admin) {
         UserProfile userProfile = userProfileRepository.findByFirebaseUid(uid)
                 .orElseGet(() -> createNew(uid, email));
 
         if (email != null && !email.equalsIgnoreCase(userProfile.getEmail())) {
             userProfile.setEmail(email.trim());
         }
+        userProfile.setRole(admin ? UserRole.ROLE_ADMIN : UserRole.ROLE_USER);
+        userProfile.setLastLoginAt(LocalDateTime.now());
         return userProfileRepository.save(userProfile);
     }
 
     @Transactional
-    public UserProfile updateProfile(String uid, String email, String name, String department) {
-        UserProfile userProfile = findOrCreate(uid, email);
+    public UserProfile updateProfile(String uid, String email, boolean admin, String name, String department) {
+        UserProfile userProfile = findOrCreate(uid, email, admin);
         userProfile.setName(name != null ? name.trim() : null);
         userProfile.setDepartment(department != null ? department.trim() : null);
         return userProfileRepository.save(userProfile);

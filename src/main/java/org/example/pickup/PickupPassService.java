@@ -1,6 +1,7 @@
 package org.example.pickup;
 
 import org.example.auth.FirebaseAuthenticationToken;
+import org.example.entity.ItemStatus;
 import org.example.entity.LostItem;
 import org.example.repository.LostItemRepository;
 import org.springframework.http.HttpStatus;
@@ -18,10 +19,16 @@ public class PickupPassService {
     private static final long DEFAULT_TTL_MINUTES = 10;
     private final LostItemRepository lostItemRepository;
     private final PickupPassRepository pickupPassRepository;
+    private final CollectionLogRepository collectionLogRepository;
 
-    public PickupPassService(LostItemRepository lostItemRepository, PickupPassRepository pickupPassRepository) {
+    public PickupPassService(
+            LostItemRepository lostItemRepository,
+            PickupPassRepository pickupPassRepository,
+            CollectionLogRepository collectionLogRepository
+    ) {
         this.lostItemRepository = lostItemRepository;
         this.pickupPassRepository = pickupPassRepository;
+        this.collectionLogRepository = collectionLogRepository;
     }
 
     @Transactional
@@ -46,6 +53,18 @@ public class PickupPassService {
         pass.setExpiresAt(now.plusMinutes(DEFAULT_TTL_MINUTES));
 
         PickupPass saved = pickupPassRepository.save(pass);
+        lostItem.setStatus(ItemStatus.PENDING_RECEIPT);
+
+        CollectionLog issuedLog = new CollectionLog();
+        issuedLog.setLostItem(lostItem);
+        issuedLog.setPickupPassId(saved.getId());
+        issuedLog.setRequesterUid(saved.getRequesterUid());
+        issuedLog.setRequesterEmail(saved.getRequesterEmail());
+        issuedLog.setOtpToken(saved.getToken());
+        issuedLog.setOtpExpiresAt(saved.getExpiresAt());
+        issuedLog.setAction(CollectionAction.QR_ISSUED);
+        collectionLogRepository.save(issuedLog);
+
         return toIssueResponse(saved, "수령 QR이 발급되었습니다.");
     }
 
@@ -67,8 +86,23 @@ public class PickupPassService {
         pass.setUsedAt(now);
         pass.setVerifiedByUid(verifier.getUid());
         pass.setVerifiedByEmail(verifier.getEmail());
+        pass.getLostItem().setStatus(ItemStatus.RECEIVED);
 
         PickupPass saved = pickupPassRepository.save(pass);
+
+        CollectionLog verifyLog = new CollectionLog();
+        verifyLog.setLostItem(saved.getLostItem());
+        verifyLog.setPickupPassId(saved.getId());
+        verifyLog.setRequesterUid(saved.getRequesterUid());
+        verifyLog.setRequesterEmail(saved.getRequesterEmail());
+        verifyLog.setManagerUid(saved.getVerifiedByUid());
+        verifyLog.setManagerEmail(saved.getVerifiedByEmail());
+        verifyLog.setOtpToken(saved.getToken());
+        verifyLog.setOtpExpiresAt(saved.getExpiresAt());
+        verifyLog.setCollectedAt(saved.getUsedAt());
+        verifyLog.setAction(CollectionAction.QR_VERIFIED);
+        collectionLogRepository.save(verifyLog);
+
         return new VerifyPickupPassResponse(
                 true,
                 "수령 인증이 완료되었습니다.",

@@ -17,6 +17,13 @@ public class UserProfile {
     @Column(name = "email", nullable = false, length = 255)
     private String email;
 
+    @Column(name = "student_no", length = 30)
+    private String studentNo;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false, length = 20)
+    private UserRole role = UserRole.ROLE_USER;
+
     @Column(name = "name", length = 100)
     private String name;
 
@@ -32,11 +39,18 @@ public class UserProfile {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column(name = "last_login_at")
+    private LocalDateTime lastLoginAt;
+
     @PrePersist
     public void onCreate() {
         LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
+        this.lastLoginAt = now;
+        if (this.role == null) {
+            this.role = UserRole.ROLE_USER;
+        }
         this.profileCompleted = isFilled(name) && isFilled(department);
     }
 
@@ -70,6 +84,22 @@ public class UserProfile {
         this.email = email;
     }
 
+    public String getStudentNo() {
+        return studentNo;
+    }
+
+    public void setStudentNo(String studentNo) {
+        this.studentNo = studentNo;
+    }
+
+    public UserRole getRole() {
+        return role;
+    }
+
+    public void setRole(UserRole role) {
+        this.role = role;
+    }
+
     public String getName() {
         return name;
     }
@@ -88,5 +118,13 @@ public class UserProfile {
 
     public boolean isProfileCompleted() {
         return profileCompleted;
+    }
+
+    public LocalDateTime getLastLoginAt() {
+        return lastLoginAt;
+    }
+
+    public void setLastLoginAt(LocalDateTime lastLoginAt) {
+        this.lastLoginAt = lastLoginAt;
     }
 }

@@ -2,6 +2,7 @@ package org.example.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "lost_item")
@@ -20,6 +21,9 @@ public class LostItem {
     @Column(name = "found_location")
     private String foundLocation;
 
+    @Column(name = "lost_location")
+    private String lostLocation;
+
     @Column(name = "stored_location")
     private String storedLocation;
 
@@ -35,8 +39,46 @@ public class LostItem {
     @Column(name = "item_type")
     private String itemType;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private Category category;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 30)
+    private ItemStatus status = ItemStatus.STORED;
+
+    @Column(name = "masking_flag", nullable = false)
+    private boolean maskingFlag;
+
+    @Column(name = "vision_dominant_colors_json", columnDefinition = "TEXT")
+    private String visionDominantColorsJson;
+
+    @Column(name = "vision_extracted_text", columnDefinition = "TEXT")
+    private String visionExtractedText;
+
     @Column(name = "image_url")
     private String imageUrl;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    public void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+        if (this.status == null) {
+            this.status = ItemStatus.STORED;
+        }
+    }
+
+    @PreUpdate
+    public void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
@@ -49,6 +91,9 @@ public class LostItem {
 
     public String getFoundLocation() { return foundLocation; }
     public void setFoundLocation(String foundLocation) { this.foundLocation = foundLocation; }
+
+    public String getLostLocation() { return lostLocation; }
+    public void setLostLocation(String lostLocation) { this.lostLocation = lostLocation; }
 
     public String getStoredLocation() { return storedLocation; }
     public void setStoredLocation(String storedLocation) { this.storedLocation = storedLocation; }
@@ -65,6 +110,26 @@ public class LostItem {
     public String getItemType() { return itemType; }
     public void setItemType(String itemType) { this.itemType = itemType; }
 
+    public Category getCategory() { return category; }
+    public void setCategory(Category category) { this.category = category; }
+
+    public ItemStatus getStatus() { return status; }
+    public void setStatus(ItemStatus status) { this.status = status; }
+
+    public boolean isMaskingFlag() { return maskingFlag; }
+    public void setMaskingFlag(boolean maskingFlag) { this.maskingFlag = maskingFlag; }
+
+    public String getVisionDominantColorsJson() { return visionDominantColorsJson; }
+    public void setVisionDominantColorsJson(String visionDominantColorsJson) {
+        this.visionDominantColorsJson = visionDominantColorsJson;
+    }
+
+    public String getVisionExtractedText() { return visionExtractedText; }
+    public void setVisionExtractedText(String visionExtractedText) { this.visionExtractedText = visionExtractedText; }
+
     public String getImageUrl() { return imageUrl; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

@@ -111,7 +111,7 @@ class AuthSecurityIntegrationTest {
         UserProfile userProfile = new UserProfile();
         userProfile.setFirebaseUid("uid-9");
         userProfile.setEmail("user@dankook.ac.kr");
-        when(userProfileService.findOrCreate("uid-9", "user@dankook.ac.kr"))
+        when(userProfileService.findOrCreate("uid-9", "user@dankook.ac.kr", false))
                 .thenReturn(userProfile);
 
         mockMvc.perform(post("/api/auth/login")
@@ -132,7 +132,7 @@ class AuthSecurityIntegrationTest {
         userProfile.setEmail("user2@dankook.ac.kr");
         userProfile.setName("홍길동");
         userProfile.setDepartment("컴퓨터공학과");
-        when(userProfileService.updateProfile("uid-10", "user2@dankook.ac.kr", "홍길동", "컴퓨터공학과"))
+        when(userProfileService.updateProfile("uid-10", "user2@dankook.ac.kr", false, "홍길동", "컴퓨터공학과"))
                 .thenReturn(userProfile);
 
         mockMvc.perform(patch("/api/users/me/profile")

@@ -2,9 +2,17 @@ CREATE TABLE IF NOT EXISTS app_user (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     firebase_uid VARCHAR(128) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL,
+    student_no VARCHAR(30),
+    role VARCHAR(20) NOT NULL DEFAULT 'ROLE_USER',
     name VARCHAR(100),
     department VARCHAR(100),
     profile_completed TINYINT(1) NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL
+    updated_at DATETIME NOT NULL,
+    last_login_at DATETIME
 ) CHARACTER SET utf8mb4;
+
+ALTER TABLE app_user
+    ADD COLUMN IF NOT EXISTS student_no VARCHAR(30) NULL AFTER email,
+    ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'ROLE_USER' AFTER student_no,
+    ADD COLUMN IF NOT EXISTS last_login_at DATETIME NULL AFTER updated_at;

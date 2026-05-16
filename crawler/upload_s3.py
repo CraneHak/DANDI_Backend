@@ -54,10 +54,10 @@ def get_first_image(folder_path):
     return None
 
 
-def upload_to_s3(s3, file_path, item_id):
+def upload_to_s3(s3, file_path, item_key):
     """S3에 이미지 업로드 후 URL 반환"""
     ext = os.path.splitext(file_path)[1].lower()
-    key = f"lost-items/{item_id}{ext}"
+    key = f"lost-items/{item_key}{ext}"
     content_type = {
         ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
         ".png": "image/png", ".gif": "image/gif", ".webp": "image/webp"
@@ -81,14 +81,16 @@ def main():
     conn = pymysql.connect(**DB_CONFIG)
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id FROM lost_item WHERE image_url IS NULL ORDER BY id")
+            cur.execute("SELECT id, post_no FROM lost_item WHERE image_url IS NULL ORDER BY id")
             rows = cur.fetchall()
 
         print(f"image_url이 없는 항목: {len(rows)}개")
 
         updated = 0
-        for (item_id,) in rows:
-            folder = os.path.join(IMAGE_DIR, str(item_id))
+        for (item_id, post_no) in rows:
+            # 이미지 폴더는 게시글 번호(post_no) 기준으로 생성됨.
+            folder_key = post_no if post_no is not None else item_id
+            folder = os.path.join(IMAGE_DIR, str(folder_key))
             clean_filenames(folder)
             image_path = get_first_image(folder)
 
@@ -96,7 +98,9 @@ def main():
                 continue
 
             try:
-                url = upload_to_s3(s3, image_path, item_id)
+                # 업로드 키도 post_no 기준으로 맞춰 id/post_no 불일치 이슈를 방지.
+                s3_key = post_no if post_no is not None else item_id
+                url = upload_to_s3(s3, image_path, s3_key)
                 with conn.cursor() as cur:
                     cur.execute(
                         "UPDATE lost_item SET image_url = %s WHERE id = %s",

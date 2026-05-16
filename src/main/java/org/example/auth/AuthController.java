@@ -31,7 +31,7 @@ public class AuthController {
     @PostMapping("/auth/login")
     public LoginResponse login(Authentication authentication) {
         FirebaseAuthenticationToken token = requireFirebaseToken(authentication);
-        UserProfile userProfile = userProfileService.findOrCreate(token.getUid(), token.getEmail());
+        UserProfile userProfile = userProfileService.findOrCreate(token.getUid(), token.getEmail(), token.isAdmin());
         return toResponse(token, userProfile);
     }
 
@@ -47,7 +47,7 @@ public class AuthController {
     @GetMapping("/users/me")
     public LoginResponse myProfile(Authentication authentication) {
         FirebaseAuthenticationToken token = requireFirebaseToken(authentication);
-        UserProfile userProfile = userProfileService.findOrCreate(token.getUid(), token.getEmail());
+        UserProfile userProfile = userProfileService.findOrCreate(token.getUid(), token.getEmail(), token.isAdmin());
         return toResponse(token, userProfile);
     }
 
@@ -60,6 +60,7 @@ public class AuthController {
         UserProfile userProfile = userProfileService.updateProfile(
                 token.getUid(),
                 token.getEmail(),
+                token.isAdmin(),
                 request.name(),
                 request.department()
         );
