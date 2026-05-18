@@ -3,8 +3,11 @@ package org.example.report;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import org.example.auth.FirebaseAuthenticationToken;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -30,7 +33,10 @@ public class ReportController {
     }
 
     @PostMapping
-    public ResponseEntity<ReportResponse> create(@Valid @RequestBody CreateReportRequest body) {
+    public ResponseEntity<ReportResponse> create(
+            Authentication authentication,
+            @Valid @RequestBody CreateReportRequest body
+    ) {
         try {
             Report report = new Report();
             report.setItemName(body.itemName());
@@ -39,7 +45,7 @@ public class ReportController {
             report.setLocation(body.location());
             report.setMemo(body.memo());
 
-            Report saved = reportService.create(report);
+            Report saved = reportService.create(report, isAdmin(authentication));
             return ResponseEntity.status(HttpStatus.CREATED).body(ReportResponse.from(saved));
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
@@ -113,5 +119,14 @@ public class ReportController {
                     r.getPickedUpAt() != null ? r.getPickedUpAt().format(FMT) : null
             );
         }
+    }
+
+    private boolean isAdmin(Authentication authentication) {
+        if (!(authentication instanceof FirebaseAuthenticationToken token)) {
+            return false;
+        }
+        return token.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch("ROLE_ADMIN"::equals);
     }
 }

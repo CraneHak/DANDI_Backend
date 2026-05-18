@@ -25,12 +25,18 @@ public class ReportService {
     }
 
     @Transactional
-    public Report create(Report report) {
+    public Report create(Report report, boolean createdByAdmin) {
         normalizeReportFields(report);
+        if (createdByAdmin) {
+            // Admin-side direct registrations should not appear in pending report review flow.
+            report.setStatus(ReportStatus.UNAVAILABLE);
+        }
         Report saved = reportRepository.save(report);
         createNotice(
-                "신고 접수됨",
-                "분실물 신고가 정상 접수되었습니다: " + safe(saved.getItemName())
+                createdByAdmin ? "관리자 등록 완료" : "신고 접수됨",
+                createdByAdmin
+                        ? "관리자 등록 물품이 검수 대기 대상에서 제외되었습니다: " + safe(saved.getItemName())
+                        : "분실물 신고가 정상 접수되었습니다: " + safe(saved.getItemName())
         );
         return saved;
     }

@@ -27,9 +27,9 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/public/**").permitAll()
-                        .requestMatchers("/api/reports/**").permitAll()
-                        .requestMatchers("/api/notices/**").permitAll()
-                        .requestMatchers("/api/users/keywords/**").permitAll()
+                        .requestMatchers("/api/reports/**").authenticated()
+                        .requestMatchers("/api/notices/**").authenticated()
+                        .requestMatchers("/api/users/keywords/**").authenticated()
                         .requestMatchers("/api/chatbot/**").permitAll()
                         .requestMatchers("/api/pickup-passes/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")

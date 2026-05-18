@@ -84,10 +84,7 @@ public class FirebaseAuthenticationFilter extends OncePerRequestFilter {
         if (!PATH_MATCHER.match("/api/**", path)) {
             return true;
         }
-        return PATH_MATCHER.match("/api/public/**", path)
-                || PATH_MATCHER.match("/api/reports/**", path)
-                || PATH_MATCHER.match("/api/notices/**", path)
-                || PATH_MATCHER.match("/api/users/keywords/**", path);
+        return PATH_MATCHER.match("/api/public/**", path);
     }
 
     private boolean isAdmin(String uid, String email) {
