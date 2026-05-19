@@ -33,7 +33,7 @@ public class PickupPassService {
 
     @Transactional
     public IssuePickupPassResponse issuePass(FirebaseAuthenticationToken requester, IssuePickupPassRequest request) {
-        Integer lostItemId = parseLostItemId(request.reportId());
+        Integer lostItemId = parseLostItemId(request);
         LostItem lostItem = lostItemRepository.findById(lostItemId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Lost item not found."));
 
@@ -112,14 +112,19 @@ public class PickupPassService {
         );
     }
 
-    private Integer parseLostItemId(String rawId) {
+    private Integer parseLostItemId(IssuePickupPassRequest request) {
+        String rawId = request.lostItemId();
         if (rawId == null || rawId.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "reportId is required.");
+            // Backward compatibility: accept legacy field name.
+            rawId = request.reportId();
+        }
+        if (rawId == null || rawId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "lostItemId is required.");
         }
         try {
             return Integer.valueOf(rawId.trim());
         } catch (NumberFormatException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "reportId must be numeric.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "lostItemId must be numeric.");
         }
     }
 
@@ -144,9 +149,11 @@ public class PickupPassService {
     }
 
     private IssuePickupPassResponse toIssueResponse(PickupPass pass, String message) {
+        String lostItemId = String.valueOf(pass.getLostItem().getId());
         return new IssuePickupPassResponse(
                 String.valueOf(pass.getId()),
-                String.valueOf(pass.getLostItem().getId()),
+                lostItemId,
+                lostItemId,
                 pass.getToken(),
                 pass.getIssuedAt().toString(),
                 pass.getExpiresAt().toString(),
@@ -155,11 +162,12 @@ public class PickupPassService {
         );
     }
 
-    public record IssuePickupPassRequest(String reportId) {
+    public record IssuePickupPassRequest(String lostItemId, String reportId) {
     }
 
     public record IssuePickupPassResponse(
             String id,
+            String lostItemId,
             String reportId,
             String token,
             String issuedAt,

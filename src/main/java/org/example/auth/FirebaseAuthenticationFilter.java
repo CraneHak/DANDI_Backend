@@ -14,7 +14,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Locale;
 
 @Component
 public class FirebaseAuthenticationFilter extends OncePerRequestFilter {
@@ -22,13 +21,16 @@ public class FirebaseAuthenticationFilter extends OncePerRequestFilter {
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
     private final FirebaseProperties firebaseProperties;
     private final FirebaseTokenVerifier firebaseTokenVerifier;
+    private final UserProfileRepository userProfileRepository;
 
     public FirebaseAuthenticationFilter(
             FirebaseProperties firebaseProperties,
-            FirebaseTokenVerifier firebaseTokenVerifier
+            FirebaseTokenVerifier firebaseTokenVerifier,
+            UserProfileRepository userProfileRepository
     ) {
         this.firebaseProperties = firebaseProperties;
         this.firebaseTokenVerifier = firebaseTokenVerifier;
+        this.userProfileRepository = userProfileRepository;
     }
 
     @Override
@@ -63,7 +65,7 @@ public class FirebaseAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            boolean admin = isAdmin(decodedUser.uid(), email);
+            boolean admin = isAdmin(decodedUser.uid());
             FirebaseAuthenticationToken authentication =
                     new FirebaseAuthenticationToken(decodedUser.uid(), email, admin);
             SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -87,23 +89,14 @@ public class FirebaseAuthenticationFilter extends OncePerRequestFilter {
         return PATH_MATCHER.match("/api/public/**", path);
     }
 
-    private boolean isAdmin(String uid, String email) {
-        if (uid != null) {
-            for (String adminUid : firebaseProperties.getAdminUids()) {
-                if (uid.equals(adminUid != null ? adminUid.trim() : null)) {
-                    return true;
-                }
-            }
+    private boolean isAdmin(String uid) {
+        if (uid == null || uid.isBlank()) {
+            return false;
         }
-        if (email != null) {
-            String normalized = email.toLowerCase(Locale.ROOT);
-            for (String adminEmail : firebaseProperties.getAdminEmails()) {
-                if (adminEmail != null && normalized.equals(adminEmail.trim().toLowerCase(Locale.ROOT))) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return userProfileRepository.findByFirebaseUid(uid)
+                .map(UserProfile::getRole)
+                .map(UserRole.ROLE_ADMIN::equals)
+                .orElse(false);
     }
 
     private void writeError(HttpServletResponse response, HttpStatus status, String message) throws IOException {

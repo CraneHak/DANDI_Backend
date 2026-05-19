@@ -14,21 +14,20 @@ public class UserProfileService {
     }
 
     @Transactional
-    public UserProfile findOrCreate(String uid, String email, boolean admin) {
+    public UserProfile findOrCreate(String uid, String email) {
         UserProfile userProfile = userProfileRepository.findByFirebaseUid(uid)
                 .orElseGet(() -> createNew(uid, email));
 
         if (email != null && !email.equalsIgnoreCase(userProfile.getEmail())) {
             userProfile.setEmail(email.trim());
         }
-        userProfile.setRole(admin ? UserRole.ROLE_ADMIN : UserRole.ROLE_USER);
         userProfile.setLastLoginAt(LocalDateTime.now());
         return userProfileRepository.save(userProfile);
     }
 
     @Transactional
-    public UserProfile updateProfile(String uid, String email, boolean admin, String name, String department) {
-        UserProfile userProfile = findOrCreate(uid, email, admin);
+    public UserProfile updateProfile(String uid, String email, String name, String department) {
+        UserProfile userProfile = findOrCreate(uid, email);
         userProfile.setName(name != null ? name.trim() : null);
         userProfile.setDepartment(department != null ? department.trim() : null);
         return userProfileRepository.save(userProfile);
