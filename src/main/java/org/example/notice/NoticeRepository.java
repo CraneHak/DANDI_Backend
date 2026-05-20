@@ -7,4 +7,5 @@ import java.util.List;
 public interface NoticeRepository extends JpaRepository<Notice, Long> {
     List<Notice> findAllByRequesterUidOrderByCreatedAtDesc(String requesterUid);
     java.util.Optional<Notice> findByIdAndRequesterUid(Long id, String requesterUid);
+    void deleteAllByRequesterUid(String requesterUid);
 }

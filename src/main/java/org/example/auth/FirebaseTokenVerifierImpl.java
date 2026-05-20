@@ -17,7 +17,11 @@ public class FirebaseTokenVerifierImpl implements FirebaseTokenVerifier {
                     decodedToken.isEmailVerified()
             );
         } catch (FirebaseAuthException ex) {
-            throw new InvalidFirebaseTokenException("Invalid Firebase ID token.", ex);
+            String message = "Invalid Firebase ID token.";
+            if (ex.getAuthErrorCode() != null && "ID_TOKEN_EXPIRED".equalsIgnoreCase(ex.getAuthErrorCode().name())) {
+                message = "Firebase ID token expired. Please sign in again.";
+            }
+            throw new InvalidFirebaseTokenException(message, ex);
         }
     }
 }

@@ -24,11 +24,23 @@ public class Report {
     @Column(name = "location")
     private String location;
 
+    @Column(name = "storage")
+    private String storage;
+
     @Column(name = "memo", columnDefinition = "TEXT")
     private String memo;
 
+    @Column(name = "image", columnDefinition = "LONGTEXT")
+    private String image;
+
+    @Column(name = "reporter_uid", length = 128)
+    private String reporterUid;
+
+    @Column(name = "reporter_email")
+    private String reporterEmail;
+
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @Column(name = "status", nullable = false, length = 20)
     private ReportStatus status = ReportStatus.PENDING;
 
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
@@ -64,8 +76,20 @@ public class Report {
     public String getLocation() { return location; }
     public void setLocation(String location) { this.location = location; }
 
+    public String getStorage() { return storage; }
+    public void setStorage(String storage) { this.storage = storage; }
+
     public String getMemo() { return memo; }
     public void setMemo(String memo) { this.memo = memo; }
+
+    public String getImage() { return image; }
+    public void setImage(String image) { this.image = image; }
+
+    public String getReporterUid() { return reporterUid; }
+    public void setReporterUid(String reporterUid) { this.reporterUid = reporterUid; }
+
+    public String getReporterEmail() { return reporterEmail; }
+    public void setReporterEmail(String reporterEmail) { this.reporterEmail = reporterEmail; }
 
     public ReportStatus getStatus() { return status; }
     public void setStatus(ReportStatus status) { this.status = status; }

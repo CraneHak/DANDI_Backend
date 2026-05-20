@@ -15,6 +15,9 @@ public class LostItem {
     @Column(name = "post_no", unique = true)
     private Integer postNo;
 
+    @Column(name = "report_id", unique = true)
+    private Long reportId;
+
     @Column(name = "item_name")
     private String itemName;
 
@@ -85,6 +88,9 @@ public class LostItem {
 
     public Integer getPostNo() { return postNo; }
     public void setPostNo(Integer postNo) { this.postNo = postNo; }
+
+    public Long getReportId() { return reportId; }
+    public void setReportId(Long reportId) { this.reportId = reportId; }
 
     public String getItemName() { return itemName; }
     public void setItemName(String itemName) { this.itemName = itemName; }

@@ -50,6 +50,13 @@ public class NoticeController {
         }
     }
 
+    @DeleteMapping
+    public ResponseEntity<Void> deleteAll(Authentication authentication) {
+        FirebaseAuthenticationToken token = requireFirebaseToken(authentication);
+        noticeService.deleteAll(token.getUid());
+        return ResponseEntity.noContent().build();
+    }
+
     private FirebaseAuthenticationToken requireFirebaseToken(Authentication authentication) {
         if (!(authentication instanceof FirebaseAuthenticationToken token)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication is required.");

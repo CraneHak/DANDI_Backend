@@ -2,6 +2,8 @@ package org.example.controller;
 
 import org.example.entity.LostItem;
 import org.example.service.LostItemService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -21,17 +23,29 @@ public class LostItemController {
     }
 
     @GetMapping
-    public List<LostItem> getAll() {
-        return lostItemService.findAll();
+    public List<LostItemResponse> getAll() {
+        return lostItemService.findAll().stream()
+                .map(LostItemResponse::from)
+                .toList();
     }
 
     @GetMapping("/{id}")
-    public LostItem getById(@PathVariable Integer id) {
-        return lostItemService.findById(id);
+    public LostItemResponse getById(@PathVariable Integer id) {
+        return LostItemResponse.from(lostItemService.findById(id));
     }
 
-    @PostMapping(consumes = "multipart/form-data")
-    public ResponseEntity<LostItem> create(
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<LostItemResponse> createJson(@RequestBody CreateLostItemRequest body) {
+        try {
+            LostItem saved = lostItemService.createFromRequest(body);
+            return ResponseEntity.status(HttpStatus.CREATED).body(LostItemResponse.from(saved));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<LostItemResponse> createMultipart(
             @RequestParam(required = false) String itemName,
             @RequestParam(required = false) String foundLocation,
             @RequestParam(required = false) String storedLocation,
@@ -45,12 +59,20 @@ public class LostItemController {
         item.setItemName(itemName);
         item.setFoundLocation(foundLocation);
         item.setStoredLocation(storedLocation);
-        if (storedDate != null) item.setStoredDate(LocalDate.parse(storedDate));
+        if (storedDate != null) {
+            item.setStoredDate(LocalDate.parse(storedDate));
+        }
         item.setContact(contact);
         item.setColor(color);
         item.setItemType(itemType);
 
-        return ResponseEntity.ok(lostItemService.save(item, image));
+        LostItem saved = lostItemService.save(item, image);
+        return ResponseEntity.status(HttpStatus.CREATED).body(LostItemResponse.from(saved));
+    }
+
+    @PatchMapping("/{id}")
+    public LostItemResponse patch(@PathVariable Integer id, @RequestBody UpdateLostItemRequest body) {
+        return LostItemResponse.from(lostItemService.update(id, body));
     }
 
     @DeleteMapping("/{id}")

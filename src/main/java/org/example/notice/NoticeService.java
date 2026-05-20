@@ -20,6 +20,19 @@ public class NoticeService {
     }
 
     @Transactional
+    public Notice create(String requesterUid, String title, String message) {
+        if (requesterUid == null || requesterUid.isBlank()) {
+            throw new IllegalArgumentException("requesterUid is required.");
+        }
+        Notice notice = new Notice();
+        notice.setRequesterUid(requesterUid);
+        notice.setTitle(title);
+        notice.setMessage(message);
+        notice.setRead(false);
+        return noticeRepository.save(notice);
+    }
+
+    @Transactional
     public Notice markRead(String requesterUid, Long id) {
         Notice notice = noticeRepository.findByIdAndRequesterUid(id, requesterUid)
                 .orElseThrow(() -> new NoticeNotFoundException(id));
@@ -32,5 +45,10 @@ public class NoticeService {
         Notice notice = noticeRepository.findByIdAndRequesterUid(id, requesterUid)
                 .orElseThrow(() -> new NoticeNotFoundException(id));
         noticeRepository.delete(notice);
+    }
+
+    @Transactional
+    public void deleteAll(String requesterUid) {
+        noticeRepository.deleteAllByRequesterUid(requesterUid);
     }
 }

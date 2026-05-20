@@ -65,13 +65,13 @@ public class FirebaseAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            boolean admin = isAdmin(decodedUser.uid());
+            boolean admin = isAdmin(decodedUser.uid(), email);
             FirebaseAuthenticationToken authentication =
                     new FirebaseAuthenticationToken(decodedUser.uid(), email, admin);
             SecurityContextHolder.getContext().setAuthentication(authentication);
             filterChain.doFilter(request, response);
         } catch (InvalidFirebaseTokenException ex) {
-            writeError(response, HttpStatus.UNAUTHORIZED, "Invalid Firebase ID token.");
+            writeError(response, HttpStatus.UNAUTHORIZED, ex.getMessage());
         } finally {
             SecurityContextHolder.clearContext();
         }
@@ -89,9 +89,21 @@ public class FirebaseAuthenticationFilter extends OncePerRequestFilter {
         return PATH_MATCHER.match("/api/public/**", path);
     }
 
-    private boolean isAdmin(String uid) {
+    private boolean isAdmin(String uid, String email) {
+        if (email != null && !email.isBlank()) {
+            String normalized = email.trim().toLowerCase();
+            boolean emailAdmin = firebaseProperties.getAdminEmails().stream()
+                    .map(value -> value.trim().toLowerCase())
+                    .anyMatch(normalized::equals);
+            if (emailAdmin) {
+                return true;
+            }
+        }
         if (uid == null || uid.isBlank()) {
             return false;
+        }
+        if (firebaseProperties.getAdminUids().contains(uid)) {
+            return true;
         }
         return userProfileRepository.findByFirebaseUid(uid)
                 .map(UserProfile::getRole)

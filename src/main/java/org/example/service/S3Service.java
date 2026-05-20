@@ -36,15 +36,23 @@ public class S3Service {
     }
 
     public String upload(MultipartFile file) throws IOException {
-        String key = "lost-items/" + UUID.randomUUID() + "_" + file.getOriginalFilename();
+        String original = file.getOriginalFilename();
+        String filename = (original == null || original.isBlank()) ? "upload.bin" : original;
+        return uploadBytes(file.getBytes(), file.getContentType(), filename);
+    }
+
+    public String uploadBytes(byte[] bytes, String contentType, String filename) {
+        String safeName = (filename == null || filename.isBlank()) ? "upload.bin" : filename;
+        String key = "lost-items/" + UUID.randomUUID() + "_" + safeName;
+        String resolvedType = (contentType == null || contentType.isBlank()) ? "application/octet-stream" : contentType;
 
         s3Client.putObject(
                 PutObjectRequest.builder()
                         .bucket(bucket)
                         .key(key)
-                        .contentType(file.getContentType())
+                        .contentType(resolvedType)
                         .build(),
-                software.amazon.awssdk.core.sync.RequestBody.fromBytes(file.getBytes())
+                software.amazon.awssdk.core.sync.RequestBody.fromBytes(bytes)
         );
 
         return "https://" + bucket + ".s3." + region + ".amazonaws.com/" + key;

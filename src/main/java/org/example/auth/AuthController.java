@@ -1,26 +1,33 @@
 package org.example.auth;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Locale;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
 public class AuthController {
-    private final UserProfileService userProfileService;
+    private static final String BEARER_PREFIX = "Bearer ";
 
-    public AuthController(UserProfileService userProfileService) {
+    private final UserProfileService userProfileService;
+    private final FirebaseProperties firebaseProperties;
+
+    public AuthController(UserProfileService userProfileService, FirebaseProperties firebaseProperties) {
         this.userProfileService = userProfileService;
+        this.firebaseProperties = firebaseProperties;
     }
 
     @GetMapping("/public/health")
@@ -29,10 +36,16 @@ public class AuthController {
     }
 
     @PostMapping("/auth/login")
-    public LoginResponse login(Authentication authentication) {
+    public LoginResponse login(
+            Authentication authentication,
+            HttpServletRequest request,
+            @RequestBody(required = false) LoginRequest body
+    ) {
         FirebaseAuthenticationToken token = requireFirebaseToken(authentication);
         UserProfile userProfile = userProfileService.findOrCreate(token.getUid(), token.getEmail());
-        return toResponse(token, userProfile);
+        String accessToken = resolveAccessToken(request, body);
+        boolean admin = resolveAdmin(token, userProfile);
+        return toResponse(token, userProfile, accessToken, admin);
     }
 
     @GetMapping("/auth/me")
@@ -45,25 +58,30 @@ public class AuthController {
     }
 
     @GetMapping("/users/me")
-    public LoginResponse myProfile(Authentication authentication) {
+    public LoginResponse myProfile(Authentication authentication, HttpServletRequest request) {
         FirebaseAuthenticationToken token = requireFirebaseToken(authentication);
         UserProfile userProfile = userProfileService.findOrCreate(token.getUid(), token.getEmail());
-        return toResponse(token, userProfile);
+        String accessToken = resolveAccessToken(request, null);
+        boolean admin = resolveAdmin(token, userProfile);
+        return toResponse(token, userProfile, accessToken, admin);
     }
 
     @PatchMapping("/users/me/profile")
     public LoginResponse updateMyProfile(
             Authentication authentication,
-            @Valid @RequestBody UpdateProfileRequest request
+            HttpServletRequest request,
+            @Valid @RequestBody UpdateProfileRequest requestBody
     ) {
         FirebaseAuthenticationToken token = requireFirebaseToken(authentication);
         UserProfile userProfile = userProfileService.updateProfile(
                 token.getUid(),
                 token.getEmail(),
-                request.name(),
-                request.department()
+                requestBody.name(),
+                requestBody.department()
         );
-        return toResponse(token, userProfile);
+        String accessToken = resolveAccessToken(request, null);
+        boolean admin = resolveAdmin(token, userProfile);
+        return toResponse(token, userProfile, accessToken, admin);
     }
 
     private FirebaseAuthenticationToken requireFirebaseToken(Authentication authentication) {
@@ -73,14 +91,53 @@ public class AuthController {
         return token;
     }
 
-    private LoginResponse toResponse(FirebaseAuthenticationToken token, UserProfile userProfile) {
+    private String resolveAccessToken(HttpServletRequest request, LoginRequest body) {
+        if (body != null && body.idToken() != null && !body.idToken().isBlank()) {
+            return body.idToken().trim();
+        }
+        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (authHeader != null && authHeader.startsWith(BEARER_PREFIX)) {
+            return authHeader.substring(BEARER_PREFIX.length()).trim();
+        }
+        return "";
+    }
+
+    private boolean resolveAdmin(FirebaseAuthenticationToken token, UserProfile userProfile) {
+        if (token.isAdmin()) {
+            return true;
+        }
+        if (userProfile.getRole() == UserRole.ROLE_ADMIN) {
+            return true;
+        }
+        String email = token.getEmail();
+        if (email == null) {
+            return false;
+        }
+        String normalized = email.trim().toLowerCase(Locale.ROOT);
+        return firebaseProperties.getAdminEmails().stream()
+                .map(value -> value.trim().toLowerCase(Locale.ROOT))
+                .anyMatch(normalized::equals);
+    }
+
+    private LoginResponse toResponse(
+            FirebaseAuthenticationToken token,
+            UserProfile userProfile,
+            String accessToken,
+            boolean admin
+    ) {
         return new LoginResponse(
+                accessToken,
+                userProfile.isProfileCompleted(),
+                admin,
+                admin ? "ADMIN" : "USER",
                 token.getUid(),
                 token.getEmail(),
                 userProfile.getName(),
-                userProfile.getDepartment(),
-                userProfile.isProfileCompleted()
+                userProfile.getDepartment()
         );
+    }
+
+    public record LoginRequest(String idToken) {
     }
 
     public record UpdateProfileRequest(
@@ -90,11 +147,14 @@ public class AuthController {
     }
 
     public record LoginResponse(
+            String accessToken,
+            boolean profileCompleted,
+            boolean isAdmin,
+            String role,
             String uid,
             String email,
             String name,
-            String department,
-            boolean profileCompleted
+            String department
     ) {
     }
 }

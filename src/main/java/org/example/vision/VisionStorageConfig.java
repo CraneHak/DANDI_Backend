@@ -11,7 +11,7 @@ public class VisionStorageConfig implements WebMvcConfigurer {
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         String location = Path.of("uploads").toAbsolutePath().toUri().toString();
-        registry.addResourceHandler("/files/**")
+        registry.addResourceHandler("/files/**", "/uploads/**")
                 .addResourceLocations(location);
     }
 }
