@@ -128,12 +128,31 @@ public class ReportController {
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> updateReport(
+    public ResponseEntity<ReportResponse> updateReport(
             Authentication authentication,
             @PathVariable Long id,
-            @Valid @RequestBody UpdateStatusRequest body
+            @RequestBody UpdateReportDetailsRequest body
     ) {
-        return applyStatusChange(authentication, id, body.status());
+        ReportActor actor = requireActor(authentication);
+        try {
+            Report saved = reportService.updateDetails(id, body, actor);
+            return ResponseEntity.ok(ReportResponse.from(saved));
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, ex.getMessage());
+        } catch (ReportNotFoundException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ReportResponse> replaceReport(
+            Authentication authentication,
+            @PathVariable Long id,
+            @RequestBody UpdateReportDetailsRequest body
+    ) {
+        return updateReport(authentication, id, body);
     }
 
     @DeleteMapping("/{id}")
@@ -172,6 +191,14 @@ public class ReportController {
             return null;
         }
         return new ReportActor(token.getUid(), token.getEmail(), token.isAdmin());
+    }
+
+    private ReportActor requireActor(Authentication authentication) {
+        ReportActor actor = toActor(authentication);
+        if (actor == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication is required.");
+        }
+        return actor;
     }
 
     private String mergeMemo(String memo, String ownerName) {

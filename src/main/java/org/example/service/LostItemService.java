@@ -7,6 +7,7 @@ import org.example.entity.ItemStatus;
 import org.example.entity.LostItem;
 import org.example.pickup.CollectionLogRepository;
 import org.example.pickup.PickupPassRepository;
+import org.example.keyword.KeywordAlertService;
 import org.example.report.Report;
 import org.example.report.ReportRepository;
 import org.example.repository.LostItemRepository;
@@ -18,6 +19,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 @Service
@@ -29,6 +31,7 @@ public class LostItemService {
     private final CollectionLogRepository collectionLogRepository;
     private final PickupPassRepository pickupPassRepository;
     private final ReportRepository reportRepository;
+    private final KeywordAlertService keywordAlertService;
 
     public LostItemService(
             LostItemRepository repository,
@@ -36,7 +39,8 @@ public class LostItemService {
             ImageUrlService imageUrlService,
             CollectionLogRepository collectionLogRepository,
             PickupPassRepository pickupPassRepository,
-            ReportRepository reportRepository
+            ReportRepository reportRepository,
+            KeywordAlertService keywordAlertService
     ) {
         this.repository = repository;
         this.s3Service = s3Service;
@@ -44,6 +48,7 @@ public class LostItemService {
         this.collectionLogRepository = collectionLogRepository;
         this.pickupPassRepository = pickupPassRepository;
         this.reportRepository = reportRepository;
+        this.keywordAlertService = keywordAlertService;
     }
 
     public List<LostItem> findAll() {
@@ -102,12 +107,15 @@ public class LostItemService {
         LostItem item = new LostItem();
         Long linkedReportId = parseReportId(reportId);
         if (linkedReportId != null) {
+            if (!reportRepository.existsById(linkedReportId)) {
+                throw new IllegalArgumentException("report not found: id=" + linkedReportId);
+            }
             item = repository.findByReportId(linkedReportId).orElseGet(LostItem::new);
             item.setReportId(linkedReportId);
         }
 
         item.setItemName(resolvedName);
-        String type = firstNonBlank(itemType, category);
+        String type = resolveItemType(itemType, category);
         if (type != null) {
             item.setItemType(type);
         }
@@ -138,7 +146,7 @@ public class LostItemService {
         // 엔티티 기본값이 STORED라 null 체크만 하면 published가 반영되지 않음
         item.setStatus(resolveItemStatus(status));
 
-        return repository.save(item);
+        return persist(item);
     }
 
     @Transactional
@@ -155,7 +163,7 @@ public class LostItemService {
         }
         applyRequest(item, request);
         item.setStatus(ItemStatus.ACQUIRED);
-        return repository.save(item);
+        return persist(item);
     }
 
     @Transactional
@@ -163,7 +171,7 @@ public class LostItemService {
         LostItem item = repository.findByReportId(report.getId()).orElseGet(LostItem::new);
         item.setReportId(report.getId());
         item.setItemName(report.getItemName());
-        item.setItemType(report.getCategory());
+        item.setItemType(resolveItemType(null, report.getCategory()));
         item.setFoundLocation(report.getLocation());
         item.setLostLocation(report.getLocation());
         item.setStoredLocation(report.getStorage());
@@ -173,7 +181,7 @@ public class LostItemService {
             item.setImageUrl(imageUrlService.normalizeForStorage(report.getImage()));
         }
         parseStoredDate(report.getLostAt()).ifPresent(item::setStoredDate);
-        return repository.save(item);
+        return persist(item);
     }
 
     @Transactional
@@ -187,11 +195,9 @@ public class LostItemService {
                 item.setItemName(name);
             }
         }
-        if (request.category() != null) {
-            item.setItemType(request.category().trim());
-        }
-        if (request.itemType() != null) {
-            item.setItemType(request.itemType().trim());
+        String patchType = resolveItemType(request.itemType(), request.category());
+        if (patchType != null) {
+            item.setItemType(patchType);
         }
         String place = request.place() != null && !request.place().isBlank()
                 ? request.place().trim()
@@ -212,7 +218,36 @@ public class LostItemService {
         if (request.image() != null && !request.image().isBlank()) {
             item.setImageUrl(imageUrlService.normalizeForStorage(request.image()));
         }
-        return repository.save(item);
+        LostItem saved = repository.save(item);
+        keywordAlertService.notifyMatchingUsers(saved);
+        return saved;
+    }
+
+    private LostItem persist(LostItem item) {
+        LostItem saved = repository.save(item);
+        keywordAlertService.notifyMatchingUsers(saved);
+        return saved;
+    }
+
+    private String resolveItemType(String itemType, String category) {
+        String raw = firstNonBlank(itemType, category);
+        if (raw == null) {
+            return null;
+        }
+        if (!raw.contains(",")) {
+            return raw;
+        }
+        LinkedHashSet<String> unique = new LinkedHashSet<>();
+        for (String part : raw.split(",")) {
+            String trimmed = part.trim();
+            if (!trimmed.isEmpty()) {
+                unique.add(trimmed);
+            }
+        }
+        if (unique.isEmpty()) {
+            return null;
+        }
+        return String.join(",", unique);
     }
 
     @Transactional
@@ -248,11 +283,9 @@ public class LostItemService {
 
     private void applyRequest(LostItem item, CreateLostItemRequest request) {
         item.setItemName(request.resolvedName());
-        if (request.category() != null) {
-            item.setItemType(request.category().trim());
-        }
-        if (request.itemType() != null) {
-            item.setItemType(request.itemType().trim());
+        String type = resolveItemType(request.itemType(), request.category());
+        if (type != null) {
+            item.setItemType(type);
         }
         String place = request.resolvedPlace();
         if (place != null) {

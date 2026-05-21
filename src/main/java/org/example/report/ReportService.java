@@ -106,6 +106,51 @@ public class ReportService {
         return create(report, actor);
     }
 
+    /**
+     * 검수 대기 신고의 내용만 수정 (status는 pending 유지).
+     */
+    @Transactional
+    public Report updateDetails(Long id, UpdateReportDetailsRequest body, ReportActor actor) {
+        if (actor == null || !actor.admin()) {
+            throw new IllegalStateException("관리자만 신고 내용을 수정할 수 있습니다.");
+        }
+        Report report = reportRepository.findById(id)
+                .orElseThrow(() -> new ReportNotFoundException(id));
+        if (report.getStatus() != ReportStatus.PENDING) {
+            throw new IllegalStateException("검수 대기 중인 신고만 수정할 수 있습니다.");
+        }
+
+        String itemName = body.resolvedItemName();
+        if (itemName != null) {
+            report.setItemName(itemName);
+        }
+        String category = body.resolvedCategory();
+        if (category != null) {
+            report.setCategory(category);
+        }
+        String location = body.resolvedLocation();
+        if (location != null) {
+            report.setLocation(location);
+        }
+        if (body.storage() != null) {
+            report.setStorage(trimToNull(body.storage()));
+        }
+        if (body.memo() != null) {
+            report.setMemo(trimToNull(body.memo()));
+        }
+        String lostAt = body.resolvedLostAt();
+        if (lostAt != null) {
+            report.setLostAt(lostAt);
+        }
+        String image = body.resolvedImage();
+        if (image != null) {
+            report.setImage(imageUrlService.normalizeForStorage(image));
+        }
+
+        normalizeReportFields(report);
+        return reportRepository.save(report);
+    }
+
     @Transactional
     public Report updateStatus(Long id, ReportStatus newStatus, ReportActor actor) {
         Report report = reportRepository.findById(id)
