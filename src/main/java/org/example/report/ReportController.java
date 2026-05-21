@@ -5,11 +5,14 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.example.auth.FirebaseAuthenticationToken;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +34,7 @@ public class ReportController {
                 .toList();
     }
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ReportResponse> create(
             Authentication authentication,
             @Valid @RequestBody CreateReportRequest body
@@ -58,6 +61,60 @@ public class ReportController {
             return ResponseEntity.status(HttpStatus.CREATED).body(ReportResponse.from(saved));
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+        }
+    }
+
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ReportResponse> createMultipart(
+            Authentication authentication,
+            @RequestParam(required = false) String itemName,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String lostAt,
+            @RequestParam(required = false) String foundAt,
+            @RequestParam(required = false) String location,
+            @RequestParam(required = false) String place,
+            @RequestParam(required = false) String storage,
+            @RequestParam(required = false) String memo,
+            @RequestParam(required = false) String ownerEmail,
+            @RequestParam(required = false) String ownerName,
+            @RequestParam(required = false) String reporterEmail,
+            @RequestParam(required = false) String reporterName,
+            @RequestParam(required = false) String imageUrl,
+            @RequestParam(required = false) String photoUrl,
+            @RequestParam(required = false) String mosaicImageUrl,
+            @RequestParam(value = "image", required = false) MultipartFile image,
+            @RequestParam(value = "file", required = false) MultipartFile file
+    ) {
+        try {
+            ReportActor actor = toActor(authentication);
+            Report saved = reportService.createFromMultipart(
+                    actor,
+                    itemName,
+                    name,
+                    category,
+                    lostAt,
+                    foundAt,
+                    location,
+                    place,
+                    storage,
+                    memo,
+                    ownerEmail,
+                    ownerName,
+                    reporterEmail,
+                    reporterName,
+                    imageUrl,
+                    null,
+                    photoUrl,
+                    mosaicImageUrl,
+                    image,
+                    file
+            );
+            return ResponseEntity.status(HttpStatus.CREATED).body(ReportResponse.from(saved));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+        } catch (IOException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미지 업로드에 실패했습니다.");
         }
     }
 

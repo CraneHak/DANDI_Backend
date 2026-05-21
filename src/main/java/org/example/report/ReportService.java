@@ -1,12 +1,16 @@
 package org.example.report;
 
+import org.example.common.ImageUrlService;
 import org.example.entity.ItemStatus;
 import org.example.entity.LostItem;
 import org.example.notice.NoticeService;
 import org.example.service.LostItemService;
+import org.example.service.S3Service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -17,15 +21,21 @@ public class ReportService {
     private final ReportRepository reportRepository;
     private final NoticeService noticeService;
     private final LostItemService lostItemService;
+    private final S3Service s3Service;
+    private final ImageUrlService imageUrlService;
 
     public ReportService(
             ReportRepository reportRepository,
             NoticeService noticeService,
-            LostItemService lostItemService
+            LostItemService lostItemService,
+            S3Service s3Service,
+            ImageUrlService imageUrlService
     ) {
         this.reportRepository = reportRepository;
         this.noticeService = noticeService;
         this.lostItemService = lostItemService;
+        this.s3Service = s3Service;
+        this.imageUrlService = imageUrlService;
     }
 
     public List<Report> findAll() {
@@ -51,6 +61,49 @@ public class ReportService {
             );
         }
         return saved;
+    }
+
+    /**
+     * 프론트 신고 등록 multipart (image / file 필드 + 텍스트 폼 필드).
+     */
+    @Transactional
+    public Report createFromMultipart(
+            ReportActor actor,
+            String itemName,
+            String name,
+            String category,
+            String lostAt,
+            String foundAt,
+            String location,
+            String place,
+            String storage,
+            String memo,
+            String ownerEmail,
+            String ownerName,
+            String reporterEmail,
+            String reporterName,
+            String imageUrl,
+            String imageField,
+            String photoUrl,
+            String mosaicImageUrl,
+            MultipartFile imagePart,
+            MultipartFile filePart
+    ) throws IOException {
+        Report report = new Report();
+        report.setItemName(firstNonBlank(itemName, name));
+        report.setCategory(trimToNull(category));
+        report.setLostAt(firstNonBlank(lostAt, foundAt));
+        report.setLocation(firstNonBlank(location, place));
+        report.setStorage(trimToNull(storage));
+        report.setMemo(mergeReporterMemo(memo, firstNonBlank(ownerName, reporterName)));
+        report.setImage(resolveReportImage(imagePart, filePart, imageUrl, imageField, photoUrl, mosaicImageUrl));
+
+        String email = firstNonBlank(ownerEmail, reporterEmail);
+        if (email != null) {
+            report.setReporterEmail(email);
+        }
+
+        return create(report, actor);
     }
 
     @Transactional
@@ -120,6 +173,48 @@ public class ReportService {
         if (value == null) return null;
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) return null;
+        for (String value : values) {
+            String trimmed = trimToNull(value);
+            if (trimmed != null) {
+                return trimmed;
+            }
+        }
+        return null;
+    }
+
+    private String mergeReporterMemo(String memo, String ownerName) {
+        if (ownerName == null || ownerName.isBlank()) {
+            return memo;
+        }
+        if (memo == null || memo.isBlank()) {
+            return "신고자: " + ownerName.trim();
+        }
+        return memo.trim() + " (신고자: " + ownerName.trim() + ")";
+    }
+
+    private String resolveReportImage(
+            MultipartFile imagePart,
+            MultipartFile filePart,
+            String imageUrl,
+            String imageField,
+            String photoUrl,
+            String mosaicImageUrl
+    ) throws IOException {
+        if (imagePart != null && !imagePart.isEmpty()) {
+            return s3Service.upload(imagePart);
+        }
+        if (filePart != null && !filePart.isEmpty()) {
+            return s3Service.upload(filePart);
+        }
+        String urlCandidate = firstNonBlank(imageUrl, mosaicImageUrl, photoUrl, imageField);
+        if (urlCandidate != null) {
+            return imageUrlService.normalizeForStorage(urlCandidate);
+        }
+        return null;
     }
 
     private void validateStatusTransition(ReportStatus from, ReportStatus to) {
