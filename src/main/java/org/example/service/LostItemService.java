@@ -62,6 +62,86 @@ public class LostItemService {
         return repository.save(lostItem);
     }
 
+    /**
+     * 프론트 관리자 등록 multipart — JSON {@link CreateLostItemRequest}와 동일한 필드 별칭 수용.
+     */
+    @Transactional
+    public LostItem createFromMultipart(
+            String itemName,
+            String name,
+            String category,
+            String itemType,
+            String location,
+            String place,
+            String foundLocation,
+            String storage,
+            String storedLocation,
+            String memo,
+            String contact,
+            String lostAt,
+            String foundAt,
+            String acquiredAt,
+            String createdAt,
+            String registeredAt,
+            String storedDate,
+            String reportId,
+            String status,
+            String color,
+            String imageUrl,
+            String imageField,
+            String photoUrl,
+            String mosaicImageUrl,
+            MultipartFile imagePart,
+            MultipartFile filePart
+    ) throws IOException {
+        String resolvedName = firstNonBlank(itemName, name);
+        if (resolvedName == null) {
+            throw new IllegalArgumentException("name or itemName is required.");
+        }
+
+        LostItem item = new LostItem();
+        Long linkedReportId = parseReportId(reportId);
+        if (linkedReportId != null) {
+            item = repository.findByReportId(linkedReportId).orElseGet(LostItem::new);
+            item.setReportId(linkedReportId);
+        }
+
+        item.setItemName(resolvedName);
+        String type = firstNonBlank(itemType, category);
+        if (type != null) {
+            item.setItemType(type);
+        }
+        String placeValue = firstNonBlank(location, place, foundLocation);
+        if (placeValue != null) {
+            item.setFoundLocation(placeValue);
+            item.setLostLocation(placeValue);
+        }
+        String storageValue = firstNonBlank(storage, storedLocation);
+        if (storageValue != null) {
+            item.setStoredLocation(storageValue);
+        }
+        String contactValue = firstNonBlank(memo, contact);
+        if (contactValue != null) {
+            item.setContact(contactValue);
+        }
+        if (color != null) {
+            item.setColor(color.trim());
+        }
+        parseStoredDate(firstNonBlank(lostAt, foundAt, acquiredAt, createdAt, registeredAt, storedDate))
+                .ifPresent(item::setStoredDate);
+
+        String image = resolveLostItemImage(imagePart, filePart, imageUrl, imageField, photoUrl, mosaicImageUrl);
+        if (image != null) {
+            item.setImageUrl(image);
+        }
+
+        if (item.getStatus() == null) {
+            item.setStatus(resolveItemStatus(status));
+        }
+
+        return repository.save(item);
+    }
+
     @Transactional
     public LostItem createFromRequest(CreateLostItemRequest request) {
         String name = request.resolvedName();
@@ -217,5 +297,76 @@ public class LostItemService {
         } catch (Exception ignored) {
             return java.util.Optional.empty();
         }
+    }
+
+    private Long parseReportId(String reportId) {
+        if (reportId == null || reportId.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(reportId.trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private ItemStatus resolveItemStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return ItemStatus.ACQUIRED;
+        }
+        String normalized = status.trim().toLowerCase();
+        if ("published".equals(normalized) || "acquired".equals(normalized)) {
+            return ItemStatus.ACQUIRED;
+        }
+        if ("stored".equals(normalized)) {
+            return ItemStatus.STORED;
+        }
+        try {
+            return ItemStatus.valueOf(status.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return ItemStatus.ACQUIRED;
+        }
+    }
+
+    private String resolveLostItemImage(
+            MultipartFile imagePart,
+            MultipartFile filePart,
+            String imageUrl,
+            String imageField,
+            String photoUrl,
+            String mosaicImageUrl
+    ) throws IOException {
+        if (imagePart != null && !imagePart.isEmpty()) {
+            return s3Service.upload(imagePart);
+        }
+        if (filePart != null && !filePart.isEmpty()) {
+            return s3Service.upload(filePart);
+        }
+        String urlCandidate = firstNonBlank(imageUrl, mosaicImageUrl, photoUrl, imageField);
+        if (urlCandidate != null) {
+            return imageUrlService.normalizeForStorage(urlCandidate);
+        }
+        return null;
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            String trimmed = trimToNull(value);
+            if (trimmed != null) {
+                return trimmed;
+            }
+        }
+        return null;
     }
 }

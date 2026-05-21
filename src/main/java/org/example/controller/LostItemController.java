@@ -10,7 +10,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
-import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -48,27 +47,64 @@ public class LostItemController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<LostItemResponse> createMultipart(
             @RequestParam(required = false) String itemName,
-            @RequestParam(required = false) String foundLocation,
-            @RequestParam(required = false) String storedLocation,
-            @RequestParam(required = false) String storedDate,
-            @RequestParam(required = false) String contact,
-            @RequestParam(required = false) String color,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String category,
             @RequestParam(required = false) String itemType,
-            @RequestParam(required = false) MultipartFile image
+            @RequestParam(required = false) String location,
+            @RequestParam(required = false) String place,
+            @RequestParam(required = false) String foundLocation,
+            @RequestParam(required = false) String storage,
+            @RequestParam(required = false) String storedLocation,
+            @RequestParam(required = false) String memo,
+            @RequestParam(required = false) String contact,
+            @RequestParam(required = false) String lostAt,
+            @RequestParam(required = false) String foundAt,
+            @RequestParam(required = false) String acquiredAt,
+            @RequestParam(required = false) String createdAt,
+            @RequestParam(required = false) String registeredAt,
+            @RequestParam(required = false) String storedDate,
+            @RequestParam(required = false) String reportId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String color,
+            @RequestParam(required = false) String imageUrl,
+            @RequestParam(required = false) String photoUrl,
+            @RequestParam(required = false) String mosaicImageUrl,
+            @RequestParam(value = "image", required = false) MultipartFile image,
+            @RequestParam(value = "file", required = false) MultipartFile file
     ) throws IOException {
-        LostItem item = new LostItem();
-        item.setItemName(itemName);
-        item.setFoundLocation(foundLocation);
-        item.setStoredLocation(storedLocation);
-        if (storedDate != null) {
-            item.setStoredDate(LocalDate.parse(storedDate));
+        try {
+            LostItem saved = lostItemService.createFromMultipart(
+                    itemName,
+                    name,
+                    category,
+                    itemType,
+                    location,
+                    place,
+                    foundLocation,
+                    storage,
+                    storedLocation,
+                    memo,
+                    contact,
+                    lostAt,
+                    foundAt,
+                    acquiredAt,
+                    createdAt,
+                    registeredAt,
+                    storedDate,
+                    reportId,
+                    status,
+                    color,
+                    imageUrl,
+                    null,
+                    photoUrl,
+                    mosaicImageUrl,
+                    image,
+                    file
+            );
+            return ResponseEntity.status(HttpStatus.CREATED).body(LostItemResponse.from(saved));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().build();
         }
-        item.setContact(contact);
-        item.setColor(color);
-        item.setItemType(itemType);
-
-        LostItem saved = lostItemService.save(item, image);
-        return ResponseEntity.status(HttpStatus.CREATED).body(LostItemResponse.from(saved));
     }
 
     @PatchMapping("/{id}")
