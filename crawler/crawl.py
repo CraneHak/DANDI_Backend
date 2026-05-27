@@ -12,6 +12,10 @@ BASE_URL  = "https://portal.dankook.ac.kr"
 
 STUDENT_ID = os.getenv("DANKOOK_ID")
 PASSWORD   = os.getenv("DANKOOK_PW")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+
+if not DB_PASSWORD:
+    raise RuntimeError("DB_PASSWORD is required. Set it in crawler/.env or environment.")
 
 IMAGE_DIR = os.path.join(os.path.dirname(__file__))
 
@@ -20,7 +24,7 @@ DB_CONFIG = {
     "port":     int(os.getenv("DB_PORT", 3306)),
     "db":       os.getenv("DB_NAME", "dandidb"),
     "user":     os.getenv("DB_USER", "dandi"),
-    "password": os.getenv("DB_PASSWORD", "dandi1234"),
+    "password": DB_PASSWORD,
     "charset":  "utf8mb4",
 }
 
